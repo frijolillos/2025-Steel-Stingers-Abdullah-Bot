@@ -37,13 +37,18 @@ public class RobotContainer {
 
   private void configureBindings() {
     drivetrain.setDefaultCommand( // Drivetrain will execute this command periodically
-        drivetrain.applyRequest(() -> drive.withVelocityX(joystick.getLeftY() * MaxSpeed) // Drive forward with
-                                                                                           // negative Y (forward)
-            .withVelocityY(joystick.getLeftX() * MaxSpeed) // Drive left with negative X (left)
-            .withRotationalRate(-joystick.getRightX() * MaxAngularRate) // Drive counterclockwise with negative X (left)
-        ));
 
-    joystick.a().whileTrue(drivetrain.applyRequest(() -> brake));
+      /**   (_Condition_) __do this__ : __ do this instead;  */
+        
+        drivetrain.applyRequest(() -> drive.withVelocityX((joystick.getAButton()) ? limelight_range_proportional(): (-joystick.getLeftY() * MaxSpeed)) // Drive forward with
+                                                                                           // negative Y (forward)
+            // strafe
+            .withVelocityY(-joystick.getLeftX() * MaxSpeed) // Drive left with negative X (left)
+            // rot
+            .withRotationalRate((joystick.getAButton()) ? limelight_aim_proportional() : (-joystick.getRightX() * MaxAngularRate)) // Drive counterclockwise with negative X (left)
+    ));
+
+    joystick.x().whileTrue(drivetrain.applyRequest(() -> brake));
     joystick.b().whileTrue(drivetrain.applyRequest(() -> point.withModuleDirection(new Rotation2d(-joystick.getLeftY(), -joystick.getLeftX()))));
 
     // reset the field-centric heading on left bumper press
@@ -62,4 +67,34 @@ public class RobotContainer {
   public Command getAutonomousCommand() {
     return Commands.print("No autonomous command configured");
   }
+
+  //limelight aim and range
+  double limelight_aim_proportional(){    
+    // kP (constant of proportionality)
+    // this is a hand-tuned number that determines the aggressiveness of our proportional control loop
+    // if it is too high, the robot will oscillate.
+    // if it is too low, the robot will never reach its target
+    // if the robot never turns in the correct direction, kP should be inverted.
+    double kP = .035;
+
+    // tx ranges from (-hfov/2) to (hfov/2) in degrees. If your target is on the rightmost edge of 
+    // your limelight 3 feed, tx should return roughly 31 degrees.
+    double targetingAngularVelocity = LimelightHelpers.getTX("9452_A_BOT") * kP;
+
+    // convert to radians per second for our drive method
+    targetingAngularVelocity *= CommandSwerveDrivetrain.MaxAngularRate;
+
+    //invert since tx is positive when the target is to the right of the crosshair
+    targetingAngularVelocity *= -1.0;
+
+    return targetingAngularVelocity;
+  }
+
+  double limelight_range_proportional() {    
+    double kP = .1;
+    double targetingForwardSpeed = LimelightHelpers.getTY("9452_A_BOT") * kP;
+    targetingForwardSpeed *= CommandSwerveDrivetrain.MaxSpeed;
+    targetingForwardSpeed *= -1.0;
+    return targetingForwardSpeed;
+  } 
 }
